@@ -34,7 +34,7 @@ local var = g.dashboard.variable;
         + timeSeries.queryOptions.withInterval($._config.grafanaK8s.minimumTimeInterval),
     },
 
-  grafanaDashboards+:: {
+  grafanaDashboards+:: if $._config.etcdEnabled then {
     'etcd.json':
 
       local variables = {
@@ -196,5 +196,5 @@ local var = g.dashboard.variable;
       + g.dashboard.withRefresh($._config.grafanaK8s.refresh)
       + g.dashboard.withVariables([variables.datasource, variables.cluster, variables.instance])
       + g.dashboard.withPanels(g.util.grid.wrapPanels(panels, panelWidth=12, panelHeight=7)),
-  },
+  } else {},
 }

@@ -17,6 +17,10 @@
       },
     },
 
+    // Toggle to enable/disable specific monitoring artifacts (modules)
+    // Most modules will align along kubernetes components, but that may not always be the case
+    etcdEnabled: false,
+
     // Selectors are inserted between {} in Prometheus queries.
     cadvisorSelector: 'job="cadvisor"',
     kubeletSelector: 'job="kubelet"',

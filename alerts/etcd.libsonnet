@@ -1,5 +1,5 @@
 {
-  prometheusAlerts+:: {
+  prometheusAlerts+:: if $._config.etcdEnabled then {
     groups+: [
       {
         name: 'etcd',
@@ -235,5 +235,5 @@
         ],
       },
     ],
-  },
+  } else {},
 }

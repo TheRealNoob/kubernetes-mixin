@@ -15,6 +15,7 @@ TOOLING=$(JB_BIN) $(JSONNETLINT_BIN) $(JSONNET_BIN) $(JSONNETFMT_BIN) $(PROMTOOL
 JSONNETFMT_ARGS=-n 2 --max-blank-lines 2 --string-style s --comment-style s
 SRC_DIR ?=dashboards
 OUT_DIR ?=dashboards_out
+TEST_ALERTS_DIR = tmp/test-alerts
 
 .PHONY: all
 all: fmt generate lint test
@@ -61,6 +62,7 @@ dev-down:
 
 clean-alerts:
 	rm -f prometheus_alerts.yaml
+	rm -rf $(TEST_ALERTS_DIR)
 
 clean-rules:
 	rm -f prometheus_rules.yaml
@@ -93,6 +95,17 @@ markdownfmt: $(MARKDOWNFMT_BIN)
 prometheus_alerts.yaml: $(JSONNET_BIN) mixin.libsonnet lib/alerts.jsonnet alerts/*.libsonnet
 	@$(JSONNET_BIN) -J vendor -S lib/alerts.jsonnet > $@
 
+$(TEST_ALERTS_DIR):
+	@mkdir -p $@
+
+# Config-variant test alert targets (add new variants here)
+$(TEST_ALERTS_DIR)/etcd.yaml: $(JSONNET_BIN) mixin.libsonnet lib/test-alerts.jsonnet alerts/*.libsonnet | $(TEST_ALERTS_DIR)
+	@$(JSONNET_BIN) -J vendor -S --tla-code '_config={etcdEnabled: true}' lib/test-alerts.jsonnet > $@
+
+# Aggregate target for all test alert variants
+.PHONY: generate-test-alerts
+generate-test-alerts: $(TEST_ALERTS_DIR)/etcd.yaml
+
 prometheus_rules.yaml: $(JSONNET_BIN) mixin.libsonnet lib/rules.jsonnet rules/*.libsonnet
 	@$(JSONNET_BIN) -J vendor -S lib/rules.jsonnet > $@
 
@@ -110,9 +123,10 @@ jsonnet-lint: $(JSONNETLINT_BIN) $(JSONNET_VENDOR)
 		xargs -n 1 -- $(JSONNETLINT_BIN) -J vendor
 
 .PHONY: alerts-lint
-alerts-lint: $(PROMTOOL_BIN) prometheus_alerts.yaml prometheus_rules.yaml
+alerts-lint: $(PROMTOOL_BIN) prometheus_alerts.yaml prometheus_rules.yaml generate-test-alerts
 	@$(PROMTOOL_BIN) check rules prometheus_rules.yaml
 	@$(PROMTOOL_BIN) check rules prometheus_alerts.yaml
+	@$(PROMTOOL_BIN) check rules $(TEST_ALERTS_DIR)/etcd.yaml
 
 $(OUT_DIR)/.lint: $(OUT_DIR)/.dashboards-generated
 	@cp .lint $@
@@ -129,9 +143,9 @@ vale: $(VALE_BIN)
 		$(VALE_BIN) $(MD_FILES)
 
 .PHONY: pint-lint
-pint-lint: generate $(PINT_BIN)
+pint-lint: generate generate-test-alerts $(PINT_BIN)
 	@# Pint will not exit with a non-zero status code if there are linting issues.
-	@output=$$($(PINT_BIN) -n -o -l WARN lint prometheus_alerts.yaml prometheus_rules.yaml 2>&1); \
+	@output=$$($(PINT_BIN) -n -o -l WARN lint prometheus_alerts.yaml $(TEST_ALERTS_DIR)/etcd.yaml prometheus_rules.yaml 2>&1); \
 	if [ -n "$$output" ]; then \
 		echo "\n$$output"; \
 		exit 1; \
@@ -143,7 +157,7 @@ clean:
 	git clean -Xfd .
 
 .PHONY: test
-test: $(PROMTOOL_BIN) prometheus_alerts.yaml prometheus_rules.yaml
+test: $(PROMTOOL_BIN) prometheus_alerts.yaml prometheus_rules.yaml generate-test-alerts
 	@$(PROMTOOL_BIN) test rules tests/*.yaml
 
 $(BIN_DIR):

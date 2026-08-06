@@ -211,6 +211,14 @@ Kubernetes-mixin can support dashboards across multiple clusters. You need eithe
     clusterLabel: '<your cluster label>',
 ```
 
+## Etcd monitoring
+
+Etcd alerts and the Grafana dashboard are disabled by default. To enable them, set the following in your config:
+
+```jsonnet
+    etcdEnabled: true,
+```
+
 ## Customising the mixin
 
 Kubernetes-mixin allows you to override the selectors used for various jobs, to match those used in your Prometheus set. You can also customize the dashboard names and add grafana tags.
